@@ -20,5 +20,5 @@
     #'                         `#	
 
 
-## Arch Linux SalooN suckless.config ##
+## ArchLinux SalooN suckless.config ##
 -------------------------
