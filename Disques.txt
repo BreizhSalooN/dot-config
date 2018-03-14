@@ -1,0 +1,12 @@
+nosuid,nodev,nofail,rw,user,noexec
+
+/mnt/iTrucs/
+
+
+
+nosuid,nodev,nofail,noauto
+
+ZFS Disk
+
+
+
