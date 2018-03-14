@@ -1,0 +1,400 @@
+
+                  +			OS: Arch Linux x86_64
+                  #			Hostname: arch.zfs
+                 ###			Uptime: 43 min, 37 sec
+                #####			Kernel: 4.15.3-2-zen
+                ######			Shell: /bin/bash
+               ; #####;			Packages: 1020
+              +##.#####			Window Manager: Unknown
+             +##########		RAM: 2647M / 15899M (16%)
+            #############;		SWAP: 0M / 5119M (0%)
+           ###############+		CPU: Intel(R) Core(TM) i5-6500 CPU @ 3.20GHz
+          #######   #######		Backup: 227G / 2,6T (9%) (zfs)
+        .######;     ;###;`".		Boot: 115M / 575M (22%) (ext4)
+       .#######;     ;#####.		Documents: 26G / 2,4T (2%) (zfs)
+       #########.   .########`		Efi: 122K / 197M (1%) (vfat)
+      ######'           '######		Home: 2,6G / 89G (4%) (ext4)
+     ;####                 ####;	ITrucs: 1,6G / 49G (4%) (ext4)
+     ##'                     '##	Images: 55G / 2,5T (3%) (zfs)
+    #'                         `#	Movies: 2,6T / 4,9T (52%) (zfs)
+
+
+
+
+---------------------------------------
+## Arch Linux SalooN suckless.config ##
+---------------------------------------
+
+
+$ Clavier français
+-------------------
+[root@arch ~]# loadkeys fr 
+
+
+$ Verify the boot mode
+-----------------------
+# ls /sys/firmware/efi/efivars
+
+Si le répertoire n'existe pas, le système doit être démarré en mode BIOS
+
+
+$ Partition check
+------------------
+[root@arch ~]# lsblk
+NAME            MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+sda               8:0    0 256,2G  0 disk 
+├─sda1            8:1    0   200M  0 part /boot/efi
+├─sda2            8:2    0   600M  0 part /boot
+├─sda3            8:3    0   186G  0 part 
+│ ├─lvpool-home 254:0    0    90G  0 lvm  /home
+│ └─lvpool-root 254:1    0    80G  0 lvm  /
+├─sda4            8:4    0  52,2G  0 part 
+└─sda5            8:5    0  17,2G  0 part 
+
+
+$ Format partition
+-------------------
+# mkfs.fat -F32 /dev/sda1
+# mkfs.ext2 /dev/sda2
+# mkfs.ext4 /dev/mapper/lvpool-home
+# mkfs.ext4 /dev/mapper/lvpool-root
+
+
+$ Créer les points de montage
+------------------------------
+# mount /dev/mapper/lvpool-root /mnt
+# mkdir /mnt/boot
+# mkdir /mnt/boot/efi
+# mkdir /mnt/home
+# mount /dev/mapper/lvpool-home /mnt/home
+# mount /dev/sda2 /mnt/boot
+# mount /dev/sda1 /mnt/boot/efi
+
+
+$ Edit pacman mirror 
+---------------------
+# nano /etc/pacman.d/mirrorlist
+
+
+$ Install reflector
+--------------------
+# pacman -Sy reflector 
+# reflector -c France -c Italy -l 50 -f 10 --sort rate --save /etc/pacman.d/mirrorlist
+# pacman -Syy
+
+
+$ Installation de la base
+--------------------------
+# pacstrap /mnt base base-devel git dialog zip unzip p7zip ntfs-3g
+# genfstab -U -p /mnt > /mnt/etc/fstab
+# cp /etc/pacman.d/mirrorlist   /mnt/etc/pacman.d/mirrorlist
+
+# arch-chroot /mnt
+
+
+$ Edit & install grub
+----------------------
+# nano /etc/mkinitcpio.conf
+
+	HOOKS="base .... block lvm2 filesystems ...."
+
+# mkinitcpio -p linux
+
+# pacman -S grub os-prober efibootmgr grub-efi-x86_64 intel-ucode
+
+##> Grub BIOS <##
+-----------------
+# grub-install --no-floppy --recheck /dev/sda
+
+##> Grub UEFI <##	
+-----------------
+# grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=arch_grub --recheck
+	
+# grub-mkconfig -o /boot/grub/grub.cfg
+
+# mkdir /boot/efi/boot
+# cp /boot/efi/arch_grub/grubx64.efi /boot/efi/boot/bootx64.efi
+
+
+$ locale fr_FR
+---------------
+# echo LANG=fr_FR.UTF-8 >> /etc/locale.conf
+# echo LANGUAGE=fr_FR >> /etc/locale.conf
+# echo LC_ALL=C >> /etc/locale.conf
+
+# nano /etc/vconsole.conf
+
+	KEYMAP=fr-latin9
+	FONT=lat9w-16
+
+# nano /etc/locale.gen
+
+	LANG=fr_FR.UTF-8
+
+# locale-gen
+# ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
+# timedatectl set-ntp true
+# timedatectl set-timezone "Europe/Paris"
+# hwclock --systohc --utc
+
+
+$ Exit & reboot
+----------------
+# exit
+# umount -R /mnt
+# reboot
+
+---------------------------------------
+#  $ Login enfin si Arch à booté !    #
+---------------------------------------
+
+localhost login: root
+
+# localectl set-keymap fr
+
+# passwd root
+# useradd -m -G wheel,users -c 'Breizh SalooN' saloon
+# passwd saloon
+
+# visudo
+
+	%wheel ALL=(ALL) NOPASSWD: ALL
+	suppr "# " -> xx
+	save & exit -> :x
+
+# exit
+
+localhost login: saloon
+$ sudo -i
+# echo arch.zfs > /etc/hostname
+# hostnamectl set-hostname arch.zfs
+# exec bash
+
+
+$ Create SWAPfile
+------------------
+# fallocate -l 5G /swapfile
+# chmod 600 /swapfile
+# mkswap /swapfile
+# swapon /swapfile
+# free -h
+# nano /etc/fstab
+
+	# Swap file
+	/swapfile	none	swap 	defaults 	0	0
+
+
+$ Adresse IP DHCP
+------------------
+# ip a
+# dhcpcd enp0s31f6
+
+
+$ install Yaourt & more
+------------------------
+# nano /etc/pacman.conf
+
+	[archlinuxfr]
+	SigLevel = Never
+	Server = http://repo.archlinux.fr/$arch
+
+	[multilib]
+	Include = /etc/pacman.d/mirrorlist
+
+# pacman -Syy
+# pacman -S yaourt ntp reflector
+# pacman -S networkmanager
+# systemctl enable NetworkManager
+# systemctl start NetworkManager
+# nmtui
+# reboot
+
+
+---------------------------------------
+#   $ Back to business Xorg & Gnome   #
+---------------------------------------
+
+localhost login: saloon
+$ sudo -i
+
+
+$ Xorg et Intel driver
+-----------------------
+# pacman -S xorg-server xorg-xinit xorg-xmessage xorg-apps xf86-input-mouse xf86-input-keyboard xdg-user-dirs xf86-video-intel vulkan-intel mesa libva-intel-driver
+
+$ Vidéo etc
+------------
+# pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav
+
+$ Audio etc
+------------
+# pacman -S alsa-{utils,plugins,plugins,firmware} pulseaudio pulseaudio-{equalizer,alsa,gconf}
+
+
+$ Gnome le gros !
+-----------------
+# pacman -S gnome gnome-extra gvfs-mtp mtpfs gpaste
+
+# systemctl enable ntpd
+# systemctl enable gdm
+# systemctl start gdm
+
+---------------------------------------
+#          $ Le GUI enfin !!          #
+---------------------------------------
+
+$ Mais encore du terminal...
+-----------------------------
+[saloon@arch ~]$ yaourt -S trizen
+
+
+$ Install de toutes les différentes applis
+-------------------------------------------
+$ trizen -S bleachbit clementine mpv keepass htop firefox firefox-i18n-fr gparted gthumb kodi libreoffice-still-fr qbittorrent ufw
+
+
+$ trizen -S chrome-gnome-shell-git clipgrab filebot freefilesync g500-git gnome-encfs-manager gnome-mpv gnome-shell-extension-arch-update google-chrome grub-customizer gtkd gtkpod libgee06 paper-icon-theme-git system-san-francisco-font-git teamviewer tilix ttf-wps-fonts vte-tilix-common vte3-tilix wps-office wps-office-lang-fr-git
+
+# systemctl enable teamviewerd.service
+# systemctl enable ufw.service
+# systemctl enable fstrim.timer 
+
+
+$ PIA VPN
+----------
+$ trizen -S networkmanager-openvpn openvpn  private-internet-access-vpn
+
+
+$ Linux kernel
+---------------
+$ trizen -S linux-lts linux-lts-headers linux-zen linux-zen-headers
+# grub-mkconfig -o /boot/grub/grub.cfg
+
+# nano /etc/modprobe.d/i915.conf
+
+	options i915 enable_guc_loading=1 enable_guc_submission=1 enable_fbc=1 semaphores=1
+
+ enable_rc6=0 enable_hd_vgaarb=1 intel_idle.max_cstate=1
+
+# nano /etc/mkinitcpio.conf
+
+	MODULES=(aesni_intel ext4 intel_agp i915 dm_mod sd_mod ahci)
+
+# mkinitcpio -p linux-zen
+# mkinitcpio -p linux-lts
+
+$ Skylake support
+------------------
+# nano /etc/X11/xorg.conf.d/20-intel.conf
+
+	Section "Device"
+		Identifier  "Intel Graphics"
+		Driver      "intel"
+		#Option	    "DRI"	"false"
+		Option "AccelMethod" "sna"
+		Option "TearFree" "true"
+	EndSection
+
+$ Disable DPMS and prevent screen from blanking
+$ xset s off -dpms	
+
+
+# reboot
+
+$ Grub -> Select Advanced option for Arch Linux
+------------------------------------------------
+Boot Linux-zen kernel 4.15...
+
+
+# pacman -R linux linux-headers
+# grub-mkconfig -o /boot/grub/grub.cfg
+
+
+$ Arch avec linux-zen par defaut et linux-lts en secours.
+
+
+---------------------------------------
+#       LVM Snapshots & Backup        #
+---------------------------------------
+
+$ Create a snapshot
+--------------------
+# systemctl enable lvm2-monitor.service --now
+# lvcreate --size 5G --snapshot --name snap-root /dev/mapper/lvpool-root
+# lvcreate --size 9G --snapshot --name snap-home /dev/mapper/lvpool-home
+
+
+$ Revenir en arrière au moment du snapshot
+-------------------------------------------
+# lvconvert --merge /dev/lvpool/snap-root
+# lvconvert --merge /dev/lvpool/snap-home
+
+
+$ Supprimer un snapshot LVM
+----------------------------
+# lvremove /dev/lvpool/snap-root
+# lvremove /dev/lvpool/snap-home
+
+
+---------------------------------------
+#          ZFS on Arch Linux          #
+---------------------------------------
+
+$ Install ZFS
+--------------
+# nano /etc/pacman.conf
+
+	[archzfs]
+	Server = http://archzfs.com/$repo/$arch
+
+# pacman-key -r 5E1ABF240EE7A126
+# pacman-key --lsign-key 5E1ABF240EE7A126
+# pacman -Syy
+
+# trizen -S archzfs-linux-zen
+# trizen -S archzfs-linux-lts
+
+# modprobe zfs
+# zpool import
+# zfs mount -a
+# systemctl enable zfs-import-cache.service
+# systemctl enable zfs-import-scan.service
+# systemctl enable zfs-mount.service
+
+
+---------------------------------------
+#         Pacman  Arch Linux          #
+---------------------------------------
+
+Pacman rescue cache for reinstall
+---------------------------------
+# cd /var/cache/pacman/pkg/*all apps cache !
+
+
+Pacman update entre 2 semaine et un mois
+-----------------------------------------
+# Create a LVM snapshot before !
+# pacman -Syu
+$ trizen -Syua
+
+
+Pacman update de plusieurs mois
+--------------------------------
+# pacman -Sy
+# pacman -S pacman
+# pacman -Su
+$ trizen -Sua
+
+
+Pacman ignore PKG
+------------------
+# nano /etc/pacman.conf
+
+	IgnorePKG = linux-lts linux-lts-headers
+
+
+
+
+---------------------------------------
+## Arch Linux SalooN suckless.config ##
+---------------------------------------
